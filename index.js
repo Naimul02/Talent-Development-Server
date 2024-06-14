@@ -119,6 +119,10 @@ async function run() {
       const result = await feedbackCollection.insertOne(info);
       res.send(result);
     });
+    app.get('/users/feedback' , async(req, res) => {
+      const result = await feedbackCollection.find().toArray();
+      res.send(result)
+    })
 
     // TODO : -----------
     app.post("/payment", async (req, res) => {
