@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const port = process.env.PORT || 5000;
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
@@ -36,12 +37,56 @@ async function run() {
       .db("assignment-12")
       .collection("assignmentSubmit");
 
+    // jwt related api
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1hr",
+      });
+      res.send({ token });
+    });
+
+    // middlewares
+    const verifyToken = (req, res, next) => {
+      // console.log("inside verify token", req.headers);
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "forbidden access" });
+      }
+      const token = req.headers.authorization.split(" ")[1];
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "forbidden access" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
+
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      console.log(email);
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      const isAdmin = user.role === "admin";
+      if (!isAdmin) {
+        console.log("you are not admin");
+        res.status(401).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
     // users
-    app.get("/users", async (req, res) => {
+    app.get("/users" ,  async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
-    app.post("/users", async (req, res) => {
+    app.get("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
+      res.send(result);
+    });
+    app.post("/users", verifyToken, verifyAdmin, async (req, res) => {
       const info = req.body;
       const result = await usersCollection.insertOne(info);
       res.send(result);
@@ -58,7 +103,7 @@ async function run() {
       // console.log(result);
       res.send(result);
     });
-    app.get("/teachOn", async (req, res) => {
+    app.get("/teachOn", verifyToken, verifyAdmin, async (req, res) => {
       const result = await teachOnCollection.find().toArray();
       res.send(result);
     });
@@ -75,7 +120,7 @@ async function run() {
       res.send(result);
     });
     // approved
-    app.patch("/teachOn/:id", async (req, res) => {
+    app.patch("/teachOn/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -87,17 +132,22 @@ async function run() {
       res.send(result);
     });
     // rejected
-    app.patch("/teachOnRejected/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          status: "rejected",
-        },
-      };
-      const result = await teachOnCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    });
+    app.patch(
+      "/teachOnRejected/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            status: "rejected",
+          },
+        };
+        const result = await teachOnCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      }
+    );
 
     app.post("/assignmentSubmit", async (req, res) => {
       const info = req.body;
@@ -119,12 +169,17 @@ async function run() {
       const result = await feedbackCollection.insertOne(info);
       res.send(result);
     });
-    app.get('/users/feedback' , async(req, res) => {
+    app.get("/users/feedback", async (req, res) => {
       const result = await feedbackCollection.find().toArray();
-      res.send(result)
-    })
+      console.log("result ", result);
+      res.send(result);
+    });
 
     // TODO : -----------
+    app.get('/payment' , async(req , res) => {
+      const result = await paymentCollection.find().toArray();
+      res.send(result);
+    })
     app.post("/payment", async (req, res) => {
       const info = req.body;
       const result = await paymentCollection.insertOne(info);
@@ -245,39 +300,54 @@ async function run() {
       }
       res.send({ admin });
     });
-    app.patch("/users/admin/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          role: "admin",
-        },
-      };
-      const result = await usersCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    });
-    app.patch("/users/admin/classes/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          status: "accepted",
-        },
-      };
-      const result = await classesCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    });
-    app.patch("/users/admin/classes/Rejected/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          status: "rejected",
-        },
-      };
-      const result = await classesCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    });
+    app.patch(
+      "/users/admin/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            role: "admin",
+          },
+        };
+        const result = await usersCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      }
+    );
+    app.patch(
+      "/users/admin/classes/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            status: "accepted",
+          },
+        };
+        const result = await classesCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      }
+    );
+    app.patch(
+      "/users/admin/classes/Rejected/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            status: "rejected",
+          },
+        };
+        const result = await classesCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      }
+    );
 
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
