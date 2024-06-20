@@ -74,9 +74,14 @@ async function run() {
       }
       next();
     };
+    // pagination
+    app.get('/classesCount' , async(req , res) => {
+        const count = await classesCollection.estimatedDocumentCount();
+        res.send({count})
+    })
 
     // users
-    app.get("/users" ,  async (req, res) => {
+    app.get("/users", async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
@@ -86,7 +91,7 @@ async function run() {
       const result = await usersCollection.findOne(query);
       res.send(result);
     });
-    app.post("/users", verifyToken, verifyAdmin, async (req, res) => {
+    app.post("/users", async (req, res) => {
       const info = req.body;
       const result = await usersCollection.insertOne(info);
       res.send(result);
@@ -116,6 +121,7 @@ async function run() {
     });
     app.post("/teachOn", async (req, res) => {
       const info = req.body;
+
       const result = await teachOnCollection.insertOne(info);
       res.send(result);
     });
@@ -169,17 +175,17 @@ async function run() {
       const result = await feedbackCollection.insertOne(info);
       res.send(result);
     });
-    app.get("/users/feedback", async (req, res) => {
+    app.get("/feedback", async (req, res) => {
       const result = await feedbackCollection.find().toArray();
-      console.log("result ", result);
+      // console.log("result ", result);
       res.send(result);
     });
 
     // TODO : -----------
-    app.get('/payment' , async(req , res) => {
+    app.get("/payment", async (req, res) => {
       const result = await paymentCollection.find().toArray();
       res.send(result);
-    })
+    });
     app.post("/payment", async (req, res) => {
       const info = req.body;
       const result = await paymentCollection.insertOne(info);
@@ -249,6 +255,21 @@ async function run() {
       }
       res.send({ teacher });
     });
+
+    app.get("/totalEnrolAssign/:title/:id", async (req, res) => {
+      const title = req.params.title;
+      const id = req.params.id;
+      const query = { title };
+      console.log(title, id);
+      const findOut = { _id: new ObjectId(id) };
+      const totalAssignment = await assignmentCollection.find(query).toArray();
+      const totalSubmitAssignment = await assignmentSubmitCollection
+        .find(query)
+        .toArray();
+      const totalEnrolment = await classesCollection.findOne(findOut);
+      res.send({ totalAssignment, totalEnrolment, totalSubmitAssignment });
+    });
+
     app.get("/users/teacherClasses/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
@@ -261,13 +282,7 @@ async function run() {
       const result = await classesCollection.deleteOne(filter);
       res.send(result);
     });
-    app.get("/users/teacherClass/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await classesCollection.findOne(query);
-      // console.log(result);
-      res.send(result);
-    });
+
     app.patch("/updateClass/:id", async (req, res) => {
       const info = req.body;
       // console.log("info", info);
@@ -289,6 +304,14 @@ async function run() {
     });
 
     // admin related api
+    app.get("/users/admin/feedback/:classTitle", async (req, res) => {
+      const classTitle = req.params.classTitle;
+      console.log(classTitle);
+      const query = { classTitle: classTitle };
+      const result = await feedbackCollection.find(query).toArray();
+      console.log("feedback", result);
+      res.send(result);
+    });
     app.get("/users/admin/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
