@@ -75,10 +75,15 @@ async function run() {
       next();
     };
     // pagination
-    app.get('/classesCount' , async(req , res) => {
-        const count = await classesCollection.estimatedDocumentCount();
-        res.send({count})
-    })
+    app.get("/classesCount", async (req, res) => {
+      const classFilter = await classesCollection.find().toArray();
+      const filter = classFilter.filter(
+        (singleClass) => singleClass.status === "accepted"
+      );
+
+      const count = filter.length;
+      res.send({ count });
+    });
 
     // users
     app.get("/users", async (req, res) => {
@@ -98,7 +103,16 @@ async function run() {
     });
 
     app.get("/classes", async (req, res) => {
-      const result = await classesCollection.find().toArray();
+      const page = parseInt(req.query.page);
+      const size = parseInt(req.query.size);
+
+      console.log("pagination query", page, size);
+      const result = await classesCollection
+        .find()
+        .skip(page * size)
+        .limit(size)
+        .toArray();
+
       res.send(result);
     });
     app.get("/class/:id", async (req, res) => {
