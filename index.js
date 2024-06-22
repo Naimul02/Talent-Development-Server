@@ -228,8 +228,8 @@ async function run() {
       // console.log("result ", result);
       res.send(result);
     });
-
-    app.patch("/enrollUpdate/:id", async (req, res) => {
+        // enrol update
+      app.patch("/enrollUpdate/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
 
