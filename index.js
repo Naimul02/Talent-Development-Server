@@ -5,8 +5,12 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // middleware
+// {
+//   origin: ["http://localhost:5173" , "https://assignment-12-a6ad4.web.app/"],
+// }
 app.use(cors());
 app.use(express.json());
 
@@ -64,7 +68,7 @@ async function run() {
 
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
-      console.log(email);
+      console.log("EMAIL ", email);
       const query = { email: email };
       const user = await usersCollection.findOne(query);
       const isAdmin = user.role === "admin";
@@ -84,10 +88,29 @@ async function run() {
       const count = filter.length;
       res.send({ count });
     });
+    app.get("/teacherRequestCount", async (req, res) => {
+      const teachersFilter = await teachOnCollection.find().toArray();
+      const count = teachersFilter?.length;
+      res.send({ count });
+    });
+    app.get("/usersCount", async (req, res) => {
+      const usersCount = await usersCollection.find().toArray();
+      const count = usersCount?.length;
+      res.send({ count });
+    });
 
     // users
     app.get("/users", async (req, res) => {
-      const result = await usersCollection.find().toArray();
+      const page = parseInt(req.query.page);
+      const size = parseInt(req.query.size);
+
+      console.log("pagination query", page, size);
+
+      const result = await usersCollection
+        .find()
+        .skip(page * size)
+        .limit(size)
+        .toArray();
       res.send(result);
     });
     app.get("/users/:email", async (req, res) => {
@@ -115,6 +138,7 @@ async function run() {
 
       res.send(result);
     });
+
     app.get("/class/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -122,8 +146,18 @@ async function run() {
       // console.log(result);
       res.send(result);
     });
+    // verifyToken, verifyAdmin,
     app.get("/teachOn", verifyToken, verifyAdmin, async (req, res) => {
-      const result = await teachOnCollection.find().toArray();
+      const page = parseInt(req.query.page);
+      const size = parseInt(req.query.size);
+
+      console.log("pagination query", page, size);
+
+      const result = await teachOnCollection
+        .find()
+        .skip(page * size)
+        .limit(size)
+        .toArray();
       res.send(result);
     });
     app.get("/teachOn/:id", async (req, res) => {
@@ -195,16 +229,6 @@ async function run() {
       res.send(result);
     });
 
-    // TODO : -----------
-    app.get("/payment", async (req, res) => {
-      const result = await paymentCollection.find().toArray();
-      res.send(result);
-    });
-    app.post("/payment", async (req, res) => {
-      const info = req.body;
-      const result = await paymentCollection.insertOne(info);
-      res.send(result);
-    });
     app.patch("/enrollUpdate/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -212,7 +236,7 @@ async function run() {
       const singleClass = await classesCollection.findOne(filter);
       const enroll = parseInt(singleClass.total_enrolment);
       const newEnroll = enroll ? enroll + 1 : 0 + 1;
-      // console.log(enroll, newEnroll);
+      console.log("koire tora", enroll, newEnroll);
 
       const updatedDoc = {
         $set: {
@@ -224,13 +248,6 @@ async function run() {
     });
 
     // dashboard
-    // enroll
-    app.get("/dashboard/enrollClass/:email", async (req, res) => {
-      const email = req.params.email;
-      const query = { studentEmail: email };
-      const result = await paymentCollection.find(query).toArray();
-      res.send(result);
-    });
 
     app.get("/my-enroll/:id", async (req, res) => {
       const id = req.params.id;
@@ -247,12 +264,14 @@ async function run() {
     });
     app.get("/users/assignment/:title", async (req, res) => {
       const title = req.params.title;
+      
       const query = { title };
       const result = await assignmentCollection.find(query).toArray();
-      // console.log("ottoi : ", result);
+      console.log("ottoi : ", result);
       res.send(result);
     });
 
+    // add class
     app.post("/addClass", async (req, res) => {
       const info = req.body;
       const result = await classesCollection.insertOne(info);
@@ -385,15 +404,47 @@ async function run() {
         res.send(result);
       }
     );
+    // payment intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+    app.get("/payments", async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/payments/:email", verifyToken, async (req, res) => {
+      const query = { email: req.params.email };
+      if (req.params.email !== req.decoded.email) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result);
+    });
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const paymentResult = await paymentCollection.insertOne(payment);
+      res.send(paymentResult);
+    });
 
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
