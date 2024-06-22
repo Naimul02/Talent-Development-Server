@@ -167,6 +167,7 @@ async function run() {
       // console.log("ottoi result ", result);
       res.send(result);
     });
+    // teachOn
     app.post("/teachOn", async (req, res) => {
       const info = req.body;
 
