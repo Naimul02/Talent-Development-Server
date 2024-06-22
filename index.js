@@ -160,6 +160,7 @@ async function run() {
         .toArray();
       res.send(result);
     });
+    // teach on :id
     app.get("/teachOn/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
