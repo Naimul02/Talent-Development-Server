@@ -205,7 +205,7 @@ async function run() {
       }
     );
 
-    // assignmentSubmit 
+    // assignmentSubmit
     app.post("/assignmentSubmit", async (req, res) => {
       const info = req.body;
       const result = await assignmentSubmitCollection.insertOne(info);
@@ -232,8 +232,8 @@ async function run() {
       // console.log("result ", result);
       res.send(result);
     });
-        // enrol update
-      app.patch("/enrollUpdate/:id", async (req, res) => {
+    // enrol update
+    app.patch("/enrollUpdate/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
 
@@ -269,7 +269,7 @@ async function run() {
     // title
     app.get("/users/assignment/:title", async (req, res) => {
       const title = req.params.title;
-      
+
       const query = { title };
       const result = await assignmentCollection.find(query).toArray();
       console.log("ottoi : ", result);
