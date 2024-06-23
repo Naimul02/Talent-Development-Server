@@ -253,9 +253,9 @@ async function run() {
 
     // dashboard
 
-    app.get("/my-enroll/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
+    app.get("/my-enroll/:title", async (req, res) => {
+      const title = req.params.title;
+      const query = {title };
       const result = await paymentCollection.findOne(query);
       res.send(result);
     });
@@ -284,6 +284,7 @@ async function run() {
     });
     app.get("/users/teacher/:email", async (req, res) => {
       const email = req.params.email;
+      console.log("teacher" , email)
       const query = { email: email };
       const user = await usersCollection.findOne(query);
 
@@ -318,6 +319,12 @@ async function run() {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const result = await classesCollection.deleteOne(filter);
+      res.send(result);
+    });
+    app.get("/users/teacherClass/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const result = await classesCollection.findOne(filter);
       res.send(result);
     });
 
