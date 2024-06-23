@@ -66,6 +66,7 @@ async function run() {
       });
     };
 
+    // verify admin
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
       console.log("EMAIL ", email);
